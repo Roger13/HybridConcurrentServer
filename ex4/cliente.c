@@ -83,7 +83,12 @@ int main(int argc, char **argv) {
    for ( ; ; ) {	
       fgets (sendline, MAXLINE - 1, stdin);
       write (sockfd, sendline, strlen(sendline));
-	
+
+      if (strcmp(sendline, "bye\n") == 0){
+	printf("Conexao encerrada.\n");
+	break;
+      }
+      
       n = read(sockfd, recvline, MAXLINE);				
       recvline[n] = 0;
       printf("%s", recvline);      

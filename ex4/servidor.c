@@ -85,7 +85,7 @@ int main (int argc, char **argv) {
     perror(error);
     exit(1);
   }
-   
+
   //Inicializa o socket
   listenfd = Socket(AF_INET, SOCK_STREAM, 0);
   //Preenche informacoes relativas ao socket do servidor
@@ -94,15 +94,43 @@ int main (int argc, char **argv) {
   Bind(listenfd, &servaddr);
   //Diz para o socket ouvir conexoes
   Listen(listenfd);
+
+  //Prepara arquivo de log
+
+  time_t now;
+  char timeString[256];
+  FILE *log;
+  
   while (1){
     //Aceita uma conexao e atribui a um socket
     connfd = Accept(listenfd, &clientaddr, &addrlen);
+
+
+    //Registra conexao
+    
+    time(&now);
+    strftime (timeString, 256, "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+    log = fopen("log.txt","a");
+    if (log == NULL){
+      printf ("Failed to log entry.\n");
+    }
+    else{
+      fprintf(log,"[%s] %s:%u conectou-se\n",
+	      timeString,
+	      inet_ntoa(clientaddr.sin_addr),
+	      ntohs(clientaddr.sin_port));
+    }
+    fclose(log);
+
+
+    // Cria subprocesso que lidara com essa conexao
     
     if ((child_pid = fork()) == 0) { //Processo filho
       //Fecha socket para ouvir novas conexoes
       close(listenfd);
       //Imprime o endereço do socket local
-      getsockname(listenfd,(struct sockaddr *)&servaddr, &addrlen);
+      getsockname(connfd,(struct sockaddr *)&servaddr, &addrlen);
       printf("Endereço local: %s:%u \n",inet_ntoa(servaddr.sin_addr), ntohs(servaddr.sin_port));
      
       //Imprime o endereço do socket remoto
@@ -113,15 +141,73 @@ int main (int argc, char **argv) {
       while(1) {
         //Executa comandos enviados pelo cliente
 	n = read(connfd, recvline, MAXLINE);
-	recvline[n] = 0;
-	int r = system(recvline);
-	if(r){
-	  printf("Return value: %d\n", r);
-	};
-       
-	write(connfd, recvline, strlen(recvline));	
+
+	if (n == 0){
+	  // socket disconnected
+	  break;
+	}
+
+	if (strcmp(recvline,"bye\n") == 0){
+	  break;
+	}
+	else {
+	  char outputbuffer[MAXLINE + 1];
+
+	  recvline[n] = 0;
+	  
+	  FILE* p = popen(recvline,"r");
+	
+	  if (p == NULL){
+	    printf("Erro executando comando.\n Valor de retorno: %d\n",
+		   pclose(p) / 256);
+	  }
+	  else{
+
+	    sprintf(outputbuffer, "(%s:%u) %s",
+		    inet_ntoa(clientaddr.sin_addr),
+		    ntohs(clientaddr.sin_port),
+		    recvline);
+
+	    printf("%s",outputbuffer);
+	    	    
+	    while (fgets(outputbuffer,MAXLINE+1,p)){
+	      //printf("%s",outputbuffer);
+	      write(connfd, outputbuffer, strlen(outputbuffer));
+	    }
+	    pclose(p);
+	  }
+	}
       }
+
+      
+      // Registra desconexao
+
+      time(&now);
+      strftime (timeString, 256, "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+      
+      log = fopen("log.txt","a");
+      if (log == NULL){
+	printf ("Falha no registro\n");
+      }
+      else{
+	fprintf(log,"[%s] %s:%u desconectou-se\n",
+		timeString,
+		inet_ntoa(clientaddr.sin_addr),
+		ntohs(clientaddr.sin_port));
+      }
+      fclose(log);
+
+
+      
+      
       //Fecha socket da conexao
+
+      printf("Cliente %s:%u desconectou-se.\n",
+	     inet_ntoa(clientaddr.sin_addr),
+	     ntohs(clientaddr.sin_port));
+
+     
       close(connfd);	
       return(0);
     }

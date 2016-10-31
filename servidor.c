@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 
 #define MAXLINE 4096
-#define LISTENQ 10
 #define MAXDATASIZE 100
 
 //Cria e retorna um socket descriptor
@@ -43,9 +42,9 @@ void Bind(int listenfd, struct sockaddr_in* servaddr)
 }
 
 //Diz para o socket ouvir conexoes
-void Listen(int listenfd)
+void Listen(int listenfd, int listenQ)
 {
-  if (listen(listenfd, LISTENQ) == -1) { 
+  if (listen(listenfd, listenQ) == -1) { 
     perror("listen");
     exit(1);
   }
@@ -78,10 +77,10 @@ int main (int argc, char **argv) {
   //valor temporario para o id dos processos filhos
   pid_t child_pid;
 
-  if (argc != 2) { //caso o usuário não tenha fornecido um IP e a porta para conexão
+  if (argc != 3) { //caso o usuário não tenha fornecido um IP e a porta para conexão
     strcpy(error,"uso: ");
     strcat(error,argv[0]);
-    strcat(error," <Porta>");
+    strcat(error," <Porta> <listen Backlog value");
     perror(error);
     exit(1);
   }
@@ -93,7 +92,7 @@ int main (int argc, char **argv) {
   //Associa socket com um ip e uma porta
   Bind(listenfd, &servaddr);
   //Diz para o socket ouvir conexoes
-  Listen(listenfd);
+  Listen(listenfd, atoi(argv[2]));
 
   //Prepara arquivo de log
 
@@ -102,6 +101,8 @@ int main (int argc, char **argv) {
   FILE *log;
   
   while (1){
+    //Retarda a remoção dos sockets da fila de conexões completas
+    sleep(10);
     //Aceita uma conexao e atribui a um socket
     connfd = Accept(listenfd, &clientaddr, &addrlen);
 

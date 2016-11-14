@@ -9,9 +9,44 @@
 #include <time.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/wait.h>
 
 #define MAXLINE 4096
 #define MAXDATASIZE 100
+
+//Funcao para tratar processos zumbis:
+
+void sig_child(int signo){
+  pid_t pid;
+  int stat;
+  while((pid = waitpid(-1, &stat, WNOHANG)) > 0){
+    printf("child %d terminated\n", pid);
+  }
+  return;
+}
+
+//Handler do sinal SIGCHILD
+
+typedef void Sigfunc(int);
+
+Sigfunc * Signal (int signo, Sigfunc *func){
+  struct sigaction act, oact;
+  act.sa_handler = func;
+  sigemptyset (&act.sa_mask); /* Outros sinais não são bloqueados*/
+  act.sa_flags = 0;
+  if (signo == SIGALRM) { /* Para reiniciar chamadas interrompidas */
+  #ifdef SA_INTERRUPT
+    act.sa_flags |= SA_INTERRUPT; /* SunOS 4.x */
+  #endif
+  } else {
+    #ifdef SA_RESTART
+    act.sa_flags |= SA_RESTART; /* SVR4, 4.4BSD */
+    #endif
+  }
+  if (sigaction (signo, &act, &oact) < 0)
+    return (SIG_ERR);
+  return (oact.sa_handler);
+}
 
 //Cria e retorna um socket descriptor
 int Socket(int family, int type, int flags)
@@ -93,7 +128,9 @@ int main (int argc, char **argv) {
   Bind(listenfd, &servaddr);
   //Diz para o socket ouvir conexoes
   Listen(listenfd, atoi(argv[2]));
-
+  //Registra funcao de handler
+  Signal(SIGSHLD, sig_child);
+  
   //Prepara arquivo de log
 
   time_t now;
@@ -104,8 +141,14 @@ int main (int argc, char **argv) {
     //Retarda a remoção dos sockets da fila de conexões completas
     sleep(10);
     //Aceita uma conexao e atribui a um socket
-    connfd = Accept(listenfd, &clientaddr, &addrlen);
-
+    if ((connfd = Accept(listenfd, &clientaddr, &addrlen)) < 0){
+      if (errno = EINTR){
+	continue;
+      }
+      else{
+	err_sys("accept error");
+      }
+    }
 
     //Registra conexao
     

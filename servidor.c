@@ -25,7 +25,7 @@ void sig_child(int signo){
   return;
 }
 
-//Handler do sinal SIGCHILD
+//Handler do sinal SIGCHLD
 
 typedef void Sigfunc(int);
 
@@ -129,7 +129,7 @@ int main (int argc, char **argv) {
   //Diz para o socket ouvir conexoes
   Listen(listenfd, atoi(argv[2]));
   //Registra funcao de handler
-  Signal(SIGSHLD, sig_child);
+  Signal(SIGCHLD, sig_child);
   
   //Prepara arquivo de log
 

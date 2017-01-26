@@ -1,7 +1,10 @@
-# MC833
-Programação de Redes de Computadores
+# HybridConcurrentServer
 
-Network Programming assignments repository.
+Network Programming assignments repository
+
+(http://www.lrc.ic.unicamp.br/mc833/)
+
+Rogerio de Oliveira Bernardo	RA 140922
 
 Pedro Ferrazoli Ciambra		RA 137268
-Rogerio de Oliveira Bernardo	RA 140922
+
